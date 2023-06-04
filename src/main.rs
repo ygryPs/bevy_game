@@ -62,6 +62,73 @@ struct Player {
     jump_impulse: f32,
 }
 
+struct FidgetSpinner {
+    radius: f32,
+    bump_size: f32,
+    bumps: u32,
+    vertices: usize,
+}
+
+impl Default for FidgetSpinner {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            bump_size: 0.5 / 16.0,
+            bumps: 16,
+            vertices: 32,
+        }
+    }
+}
+
+impl FidgetSpinner {
+    pub fn new(radius: f32) -> Self {
+        Self {
+            radius,
+            bump_size: radius / 16.0,
+            ..default()
+        }
+    }
+}
+
+impl From<FidgetSpinner> for Mesh {
+    fn from(shape: FidgetSpinner) -> Self {
+        let FidgetSpinner {
+            radius,
+            bump_size,
+            bumps,
+            vertices,
+        } = shape;
+
+        let mut positions = Vec::with_capacity(vertices + 1);
+        let mut normals = Vec::with_capacity(vertices + 1);
+
+        positions.push([0.0, 0.0, 0.0]);
+        normals.push([0.0, 0.0, 1.0]);
+
+        let step = std::f32::consts::TAU / vertices as f32;
+        for i in 0..vertices {
+            let theta = i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
+            let offset = bump_size * f32::cos(bumps as f32 * theta);
+
+            positions.push([cos * (radius + offset), sin * (radius + offset), 0.0]);
+            normals.push([0.0, 0.0, 1.0]);
+        }
+
+        let mut indices = Vec::with_capacity(vertices * 3);
+        for i in 1..=(vertices as u32 - 1) {
+            indices.extend_from_slice(&[0, i, i + 1]);
+        }
+        indices.extend_from_slice(&[0, vertices as u32, 1]);
+
+        let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.set_indices(Some(bevy::render::mesh::Indices::U32(indices)));
+        mesh
+    }
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -73,7 +140,7 @@ fn setup(
     // Player ball
     commands.spawn((
         ColorMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(PLAYER_RADIUS).into()).into(),
+            mesh: meshes.add(FidgetSpinner::new(PLAYER_RADIUS).into()).into(),
             material: materials.add(Color::BLUE.into()),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
