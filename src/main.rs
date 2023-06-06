@@ -85,8 +85,8 @@ impl Default for FidgetSpinner {
         Self {
             radius: 0.5,
             bump_size: 0.5 / 16.0,
-            bumps: 16,
-            vertices: 32,
+            bumps: 12,
+            vertices: 24,
         }
     }
 }
