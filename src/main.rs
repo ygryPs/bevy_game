@@ -319,11 +319,11 @@ fn resolve_collision(
             phys_obj.vel.y = 0.0;
         }
         Collider::Ball {
-            radius: r,
+            radius,
             coef_of_restitution,
             ref mut touching_ground,
         } => {
-            bounce(dt, transform, phys_obj, r, coef_of_restitution);
+            bounce(dt, transform, phys_obj, radius, coef_of_restitution);
             *touching_ground = true;
         }
     }
@@ -333,11 +333,11 @@ fn bounce(
     dt: f32,
     transform: &mut Mut<Transform>,
     phys_obj: &mut Mut<PhysObj>,
-    r: f32,
+    radius: f32,
     coef_of_restitution: f32,
 ) {
     let (s, v, a) = (
-        (transform.translation.y - r) - FLOOR_Y,
+        (transform.translation.y - radius) - FLOOR_Y,
         phys_obj.vel.y,
         phys_obj.acc.y,
     );
@@ -347,7 +347,7 @@ fn bounce(
         integrate_simple(-0.5 * dt, transform, phys_obj);
 
         let (s, v, a) = (
-            (transform.translation.y - r) - FLOOR_Y,
+            (transform.translation.y - radius) - FLOOR_Y,
             phys_obj.vel.y,
             phys_obj.acc_prev.y,
         );
