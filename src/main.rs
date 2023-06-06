@@ -171,8 +171,13 @@ fn gravity_system(mut query: Query<(&mut PhysObj, &Gravity)>) {
     }
 }
 
-fn player_system(input: Res<Input<KeyCode>>, mut query: Query<(&Player, &mut PhysObj, &Collider)>) {
+fn player_system(
+    mut commands: Commands,
+    input: Res<Input<KeyCode>>,
+    mut query: Query<(Entity, &Player, &mut PhysObj, &Collider)>,
+) {
     let (
+        entity,
         player,
         mut phys_obj,
         Collider::Ball {
@@ -183,6 +188,13 @@ fn player_system(input: Res<Input<KeyCode>>, mut query: Query<(&Player, &mut Phy
     if input.pressed(KeyCode::Space) && *touching_ground {
         let dv = Vec2::Y * player.jump_impulse / phys_obj.mass;
         phys_obj.vel += dv;
+    }
+
+    if input.just_pressed(KeyCode::K) {
+        commands.entity(entity).remove::<Gravity>();
+    }
+    if input.just_released(KeyCode::K) {
+        commands.entity(entity).insert(Gravity::default());
     }
 }
 
