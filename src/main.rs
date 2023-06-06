@@ -38,6 +38,10 @@ struct PhysObj {
     vel: Vec2,
     acc: Vec2,
     acc_prev: Vec2,
+    moment_of_inertia: f32,
+    angular_vel: f32,
+    angular_acc: f32,
+    angular_acc_prev: f32,
 }
 
 #[derive(Component)]
@@ -151,6 +155,10 @@ fn setup(
             vel: Vec2::ZERO,
             acc: Vec2::ZERO,
             acc_prev: Vec2::ZERO,
+            moment_of_inertia: 10.0 * 0.5 * PLAYER_RADIUS.powi(2),
+            angular_vel: 0.0,
+            angular_acc: 0.0,
+            angular_acc_prev: 0.0,
         },
         Gravity::default(),
         Collider::Ball {
@@ -223,12 +231,23 @@ fn integrate_before(dt: f32, transform: &mut Mut<Transform>, phys_obj: &mut Mut<
     phys_obj.acc_prev = phys_obj.acc;
     // Functions that calculate acceleration simply add to it so it must be reset every iteration.
     phys_obj.acc = Vec2::ZERO;
+
+    let dav = 0.5 * phys_obj.angular_acc * dt;
+    phys_obj.angular_vel += dav;
+    let angle = phys_obj.angular_vel * dt;
+    transform.rotate_z(angle);
+    phys_obj.angular_acc_prev = phys_obj.angular_acc;
+    // Functions that calculate acceleration simply add to it so it must be reset every iteration.
+    phys_obj.angular_acc = 0.0;
 }
 
 // The part of the integrator that runs after applying forces
 fn integrate_after(dt: f32, phys_obj: &mut Mut<PhysObj>) {
     let dv = 0.5 * phys_obj.acc * dt;
     phys_obj.vel += dv;
+
+    let dav = 0.5 * phys_obj.angular_acc * dt;
+    phys_obj.angular_vel += dav;
 }
 
 // Integrator for when acceleration is assumed constant (used in collision resolving)
@@ -237,6 +256,11 @@ fn integrate_simple(dt: f32, transform: &mut Mut<Transform>, phys_obj: &mut Mut<
     let dx = (phys_obj.vel + 0.5 * dv) * dt;
     transform.translation += dx.extend(0.0);
     phys_obj.vel += dv;
+
+    let dav = phys_obj.angular_acc * dt;
+    let angle = (phys_obj.angular_vel + 0.5 * dav) * dt;
+    transform.rotate_z(angle);
+    phys_obj.angular_vel += dav;
 }
 
 fn collision_system(
