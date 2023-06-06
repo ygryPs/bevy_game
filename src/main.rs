@@ -37,6 +37,7 @@ struct PhysObj {
     mass: f32,
     vel: Vec2,
     acc: Vec2,
+    acc_prev: Vec2,
 }
 
 #[derive(Component)]
@@ -149,6 +150,7 @@ fn setup(
             mass: 10.0,
             vel: Vec2::ZERO,
             acc: Vec2::ZERO,
+            acc_prev: Vec2::ZERO,
         },
         Gravity::default(),
         Collider::Ball {
@@ -206,6 +208,7 @@ fn integrate_before(dt: f32, transform: &mut Mut<Transform>, phys_obj: &mut Mut<
     phys_obj.vel += dv;
     let dx = phys_obj.vel * dt;
     transform.translation += dx.extend(0.0);
+    phys_obj.acc_prev = phys_obj.acc;
     // Functions that calculate acceleration simply add to it so it must be reset every iteration.
     phys_obj.acc = Vec2::ZERO;
 }
@@ -224,7 +227,11 @@ fn integrate_simple(dt: f32, transform: &mut Mut<Transform>, phys_obj: &mut Mut<
     phys_obj.vel += dv;
 }
 
-fn collision_system(mut query: Query<(&mut Transform, &mut PhysObj, &mut Collider)>) {
+fn collision_system(
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &mut PhysObj, &mut Collider)>,
+) {
+    let dt = time.delta_seconds();
     for (mut transform, mut phys_obj, mut collider) in &mut query {
         match *collider {
             Collider::Ball {
@@ -233,7 +240,7 @@ fn collision_system(mut query: Query<(&mut Transform, &mut PhysObj, &mut Collide
                 ..
             } => {
                 if transform.translation.y - r <= FLOOR_Y {
-                    resolve_collision(&mut transform, &mut phys_obj, &mut collider);
+                    resolve_collision(dt, &mut transform, &mut phys_obj, &mut collider);
                 } else if *touching_ground {
                     *touching_ground = false;
                 }
@@ -243,6 +250,7 @@ fn collision_system(mut query: Query<(&mut Transform, &mut PhysObj, &mut Collide
 }
 
 fn resolve_collision(
+    dt: f32,
     transform: &mut Mut<Transform>,
     phys_obj: &mut Mut<PhysObj>,
     collider: &mut Mut<Collider>,
@@ -261,21 +269,56 @@ fn resolve_collision(
             coef_of_restitution,
             ref mut touching_ground,
         } => {
-            bounce(transform, phys_obj, r, coef_of_restitution);
+            bounce(dt, transform, phys_obj, r, coef_of_restitution);
             *touching_ground = true;
         }
     }
 }
 
 fn bounce(
+    dt: f32,
     transform: &mut Mut<Transform>,
     phys_obj: &mut Mut<PhysObj>,
     r: f32,
     coef_of_restitution: f32,
 ) {
-    let collision_dt = ((transform.translation.y - r) - FLOOR_Y) / phys_obj.vel.y;
-    assert!(collision_dt >= 0.0);
-    integrate_simple(-collision_dt, transform, phys_obj);
-    phys_obj.vel.y *= -coef_of_restitution;
-    integrate_simple(collision_dt, transform, phys_obj);
+    let (s, v, a) = (
+        (transform.translation.y - r) - FLOOR_Y,
+        phys_obj.vel.y,
+        phys_obj.acc.y,
+    );
+    let collision_dt = calculate_collision_dt(s, v, a);
+
+    if collision_dt > 0.5 * dt || collision_dt.is_nan() {
+        integrate_simple(-0.5 * dt, transform, phys_obj);
+
+        let (s, v, a) = (
+            (transform.translation.y - r) - FLOOR_Y,
+            phys_obj.vel.y,
+            phys_obj.acc_prev.y,
+        );
+        let collision_dt2 = calculate_collision_dt(s, v, a);
+        assert!(collision_dt2 >= 0.0);
+
+        (phys_obj.acc, phys_obj.acc_prev) = (phys_obj.acc_prev, phys_obj.acc); // Don't try this at home (bad code)
+        integrate_simple(-collision_dt2, transform, phys_obj);
+        phys_obj.vel.y *= -coef_of_restitution;
+        integrate_simple(collision_dt2, transform, phys_obj);
+        (phys_obj.acc, phys_obj.acc_prev) = (phys_obj.acc_prev, phys_obj.acc); // Don't try this at home (bad code)
+
+        integrate_simple(0.5 * dt, transform, phys_obj);
+    } else {
+        assert!(collision_dt >= 0.0);
+        integrate_simple(-collision_dt, transform, phys_obj);
+        phys_obj.vel.y *= -coef_of_restitution;
+        integrate_simple(collision_dt, transform, phys_obj);
+    }
+}
+
+fn calculate_collision_dt(s: f32, v: f32, a: f32) -> f32 {
+    if a == 0.0 {
+        s / v
+    } else {
+        (v - f32::sqrt(v.powi(2) - 2.0 * a * s).copysign(v)) / a
+    }
 }
