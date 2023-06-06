@@ -64,6 +64,7 @@ enum Collider {
         radius: f32,
         coef_of_restitution: f32,
         touching_ground: bool,
+        kinetic_friction: f32,
     },
 }
 
@@ -171,10 +172,11 @@ fn setup(
             radius: PLAYER_RADIUS,
             coef_of_restitution: 0.3,
             touching_ground: false,
+            kinetic_friction: 0.5,
         },
         Player {
             jump_impulse: 10_000.0,
-            torque: 20_000.0,
+            torque: 50_000.0,
         },
     ));
 }
@@ -322,8 +324,16 @@ fn resolve_collision(
             radius,
             coef_of_restitution,
             ref mut touching_ground,
+            kinetic_friction,
         } => {
-            bounce(dt, transform, phys_obj, radius, coef_of_restitution);
+            bounce(
+                dt,
+                transform,
+                phys_obj,
+                radius,
+                coef_of_restitution,
+                kinetic_friction,
+            );
             *touching_ground = true;
         }
     }
@@ -335,6 +345,7 @@ fn bounce(
     phys_obj: &mut Mut<PhysObj>,
     radius: f32,
     coef_of_restitution: f32,
+    kinetic_friction: f32,
 ) {
     let (s, v, a) = (
         (transform.translation.y - radius) - FLOOR_Y,
@@ -356,6 +367,7 @@ fn bounce(
 
         (phys_obj.acc, phys_obj.acc_prev) = (phys_obj.acc_prev, phys_obj.acc); // Don't try this at home (bad code)
         integrate_simple(-collision_dt2, transform, phys_obj);
+        apply_friction_impulse(phys_obj, radius, coef_of_restitution, kinetic_friction);
         phys_obj.vel.y *= -coef_of_restitution;
         integrate_simple(collision_dt2, transform, phys_obj);
         (phys_obj.acc, phys_obj.acc_prev) = (phys_obj.acc_prev, phys_obj.acc); // Don't try this at home (bad code)
@@ -364,6 +376,7 @@ fn bounce(
     } else {
         assert!(collision_dt >= 0.0);
         integrate_simple(-collision_dt, transform, phys_obj);
+        apply_friction_impulse(phys_obj, radius, coef_of_restitution, kinetic_friction);
         phys_obj.vel.y *= -coef_of_restitution;
         integrate_simple(collision_dt, transform, phys_obj);
     }
@@ -375,4 +388,22 @@ fn calculate_collision_dt(s: f32, v: f32, a: f32) -> f32 {
     } else {
         (v - f32::sqrt(v.powi(2) - 2.0 * a * s).copysign(v)) / a
     }
+}
+
+fn apply_friction_impulse(
+    phys_obj: &mut Mut<PhysObj>,
+    radius: f32,
+    coef_of_restitution: f32,
+    kinetic_friction: f32,
+) {
+    let relative_speed = phys_obj.vel.x + phys_obj.angular_vel * radius;
+    let max_impulse = -phys_obj.vel.y * (1.0 + coef_of_restitution) * kinetic_friction;
+    let stopping_impulse = phys_obj.moment_of_inertia * relative_speed.abs()
+        / (phys_obj.mass * radius.powi(2) + phys_obj.moment_of_inertia);
+    let impulse = f32::min(max_impulse, stopping_impulse).copysign(-relative_speed);
+
+    dbg!(max_impulse, stopping_impulse, impulse);
+
+    phys_obj.vel.x += impulse;
+    phys_obj.angular_vel += impulse * phys_obj.mass * radius / phys_obj.moment_of_inertia;
 }
