@@ -12,7 +12,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_plugin(PhysicsPlugin)
-        .add_system(player_system.before(integrator_before_system))
+        .add_systems((
+            player_impulse_system.before(integrator_before_system),
+            player_force_system
+                .after(integrator_before_system)
+                .before(integrator_after_system),
+        ))
         .add_system(bevy::window::close_on_esc)
         .run();
 }
@@ -65,6 +70,7 @@ enum Collider {
 #[derive(Component)]
 struct Player {
     jump_impulse: f32,
+    torque: f32,
 }
 
 struct FidgetSpinner {
@@ -168,6 +174,7 @@ fn setup(
         },
         Player {
             jump_impulse: 10_000.0,
+            torque: 20_000.0,
         },
     ));
 }
@@ -179,7 +186,7 @@ fn gravity_system(mut query: Query<(&mut PhysObj, &Gravity)>) {
     }
 }
 
-fn player_system(
+fn player_impulse_system(
     mut commands: Commands,
     input: Res<Input<KeyCode>>,
     mut query: Query<(Entity, &Player, &mut PhysObj, &Collider)>,
@@ -203,6 +210,17 @@ fn player_system(
     }
     if input.just_released(KeyCode::K) {
         commands.entity(entity).insert(Gravity::default());
+    }
+}
+
+fn player_force_system(input: Res<Input<KeyCode>>, mut query: Query<(&Player, &mut PhysObj)>) {
+    let (player, mut phys_obj) = query.single_mut();
+
+    if input.pressed(KeyCode::A) {
+        phys_obj.angular_acc += player.torque / phys_obj.moment_of_inertia;
+    }
+    if input.pressed(KeyCode::D) {
+        phys_obj.angular_acc -= player.torque / phys_obj.moment_of_inertia;
     }
 }
 
