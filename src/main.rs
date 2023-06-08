@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 const FLOOR_Y: f32 = -360.0;
-const PLAYER_RADIUS: f32 = 20.0;
+const PLAYER_RADIUS: f32 = 25.0;
 
 fn main() {
     // When building for WASM, print panics to the browser console
@@ -177,7 +177,7 @@ fn setup(
         },
         Player {
             jump_impulse: 10_000.0,
-            torque: 50_000.0,
+            torque: 200_000.0,
         },
     ));
 }
