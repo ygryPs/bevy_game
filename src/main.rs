@@ -409,10 +409,6 @@ fn apply_friction_impulse(
         / (phys_obj.mass * radius.powi(2) + phys_obj.moment_of_inertia);
     let impulse = f32::min(max_impulse, stopping_impulse).copysign(-relative_speed);
 
-    if impulse.abs() >= f32::EPSILON {
-        dbg!(max_impulse, stopping_impulse, impulse);
-    }
-
     phys_obj.vel.x += impulse;
     phys_obj.angular_vel += impulse * phys_obj.mass * radius / phys_obj.moment_of_inertia;
 }
@@ -430,8 +426,6 @@ fn friction_system(time: Res<Time>, mut query: Query<(&mut PhysObj, &Collider)>)
             if phys_obj.vel.y == 0.0 {
                 let normal_impulse = -(phys_obj.acc.y + phys_obj.acc_prev.y) * 0.5 * dt;
                 apply_friction_impulse(&mut phys_obj, radius, normal_impulse, kinetic_friction);
-            } else {
-                dbg!();
             }
         }
     }
