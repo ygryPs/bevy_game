@@ -367,8 +367,11 @@ fn bounce(
 
         (phys_obj.acc, phys_obj.acc_prev) = (phys_obj.acc_prev, phys_obj.acc); // Don't try this at home (bad code)
         integrate_simple(-collision_dt2, transform, phys_obj);
-        apply_friction_impulse(phys_obj, radius, coef_of_restitution, kinetic_friction);
+
+        let normal_impulse = -phys_obj.vel.y * (1.0 + coef_of_restitution);
+        apply_friction_impulse(phys_obj, radius, normal_impulse, kinetic_friction);
         phys_obj.vel.y *= -coef_of_restitution;
+
         integrate_simple(collision_dt2, transform, phys_obj);
         (phys_obj.acc, phys_obj.acc_prev) = (phys_obj.acc_prev, phys_obj.acc); // Don't try this at home (bad code)
 
@@ -376,8 +379,11 @@ fn bounce(
     } else {
         assert!(collision_dt >= 0.0);
         integrate_simple(-collision_dt, transform, phys_obj);
-        apply_friction_impulse(phys_obj, radius, coef_of_restitution, kinetic_friction);
+
+        let normal_impulse = -phys_obj.vel.y * (1.0 + coef_of_restitution);
+        apply_friction_impulse(phys_obj, radius, normal_impulse, kinetic_friction);
         phys_obj.vel.y *= -coef_of_restitution;
+
         integrate_simple(collision_dt, transform, phys_obj);
     }
 }
@@ -393,11 +399,11 @@ fn calculate_collision_dt(s: f32, v: f32, a: f32) -> f32 {
 fn apply_friction_impulse(
     phys_obj: &mut Mut<PhysObj>,
     radius: f32,
-    coef_of_restitution: f32,
+    normal_impulse: f32,
     kinetic_friction: f32,
 ) {
     let relative_speed = phys_obj.vel.x + phys_obj.angular_vel * radius;
-    let max_impulse = -phys_obj.vel.y * (1.0 + coef_of_restitution) * kinetic_friction;
+    let max_impulse = normal_impulse * kinetic_friction;
     let stopping_impulse = phys_obj.moment_of_inertia * relative_speed.abs()
         / (phys_obj.mass * radius.powi(2) + phys_obj.moment_of_inertia);
     let impulse = f32::min(max_impulse, stopping_impulse).copysign(-relative_speed);
