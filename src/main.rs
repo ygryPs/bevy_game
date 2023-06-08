@@ -408,7 +408,9 @@ fn apply_friction_impulse(
         / (phys_obj.mass * radius.powi(2) + phys_obj.moment_of_inertia);
     let impulse = f32::min(max_impulse, stopping_impulse).copysign(-relative_speed);
 
-    dbg!(max_impulse, stopping_impulse, impulse);
+    if impulse.abs() >= f32::EPSILON {
+        dbg!(max_impulse, stopping_impulse, impulse);
+    }
 
     phys_obj.vel.x += impulse;
     phys_obj.angular_vel += impulse * phys_obj.mass * radius / phys_obj.moment_of_inertia;
