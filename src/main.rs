@@ -291,11 +291,11 @@ fn collision_system(
     for (mut transform, mut phys_obj, mut collider) in &mut query {
         match *collider {
             Collider::Ball {
-                radius: r,
+                radius,
                 ref mut touching_ground,
                 ..
             } => {
-                if transform.translation.y - r <= FLOOR_Y {
+                if transform.translation.y - radius <= FLOOR_Y {
                     resolve_collision(dt, &mut transform, &mut phys_obj, &mut collider);
                 } else if *touching_ground {
                     *touching_ground = false;
@@ -313,11 +313,11 @@ fn resolve_collision(
 ) {
     match **collider {
         Collider::Ball {
-            radius: r,
+            radius,
             touching_ground: true,
             ..
         } => {
-            transform.translation.y = FLOOR_Y + r;
+            transform.translation.y = FLOOR_Y + radius;
             phys_obj.vel.y = 0.0;
         }
         Collider::Ball {
