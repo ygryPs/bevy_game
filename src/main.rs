@@ -180,7 +180,7 @@ fn setup(
             radius: PLAYER_RADIUS,
             coef_of_restitution: 0.3,
             touching_ground: false,
-            kinetic_friction: 0.1,
+            kinetic_friction: 0.5,
             friction_acc: 0.0,
             friction_acc_prev: 0.0,
         },
