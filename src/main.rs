@@ -33,6 +33,7 @@ impl Plugin for PhysicsPlugin {
                 .before(integrator_after_system),
             friction_force_system
                 .after(integrator_before_system)
+                .after(gravity_system)
                 .after(player_force_system)
                 .before(integrator_after_system),
             integrator_after_system,
