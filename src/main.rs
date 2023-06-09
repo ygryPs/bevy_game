@@ -71,6 +71,8 @@ enum Collider {
         coef_of_restitution: f32,
         touching_ground: bool,
         kinetic_friction: f32,
+        friction_acc: f32,
+        friction_acc_prev: f32,
     },
 }
 
@@ -179,6 +181,8 @@ fn setup(
             coef_of_restitution: 0.3,
             touching_ground: false,
             kinetic_friction: 0.1,
+            friction_acc: 0.0,
+            friction_acc_prev: 0.0,
         },
         Player {
             jump_impulse: 10_000.0,
@@ -331,6 +335,7 @@ fn resolve_collision(
             coef_of_restitution,
             ref mut touching_ground,
             kinetic_friction,
+            ..
         } => {
             bounce(
                 dt,
@@ -375,7 +380,7 @@ fn bounce(
         integrate_simple(-collision_dt2, transform, phys_obj);
 
         let normal_impulse = -phys_obj.vel.y * (1.0 + coef_of_restitution);
-        apply_friction_impulse(phys_obj, radius, normal_impulse, kinetic_friction);
+        apply_friction_impulse(phys_obj, radius, normal_impulse, kinetic_friction, 0.0);
         phys_obj.vel.y *= -coef_of_restitution;
 
         integrate_simple(collision_dt2, transform, phys_obj);
@@ -387,7 +392,7 @@ fn bounce(
         integrate_simple(-collision_dt, transform, phys_obj);
 
         let normal_impulse = -phys_obj.vel.y * (1.0 + coef_of_restitution);
-        apply_friction_impulse(phys_obj, radius, normal_impulse, kinetic_friction);
+        apply_friction_impulse(phys_obj, radius, normal_impulse, kinetic_friction, 0.0);
         phys_obj.vel.y *= -coef_of_restitution;
 
         integrate_simple(collision_dt, transform, phys_obj);
@@ -407,9 +412,11 @@ fn apply_friction_impulse(
     radius: f32,
     normal_impulse: f32,
     kinetic_friction: f32,
+    applied_friction: f32, // friction that has already been applied earlier in the frame
 ) {
     let relative_speed = phys_obj.vel.x + phys_obj.angular_vel * radius;
-    let max_impulse = normal_impulse * kinetic_friction;
+    let max_impulse =
+        normal_impulse * kinetic_friction + applied_friction * relative_speed.signum();
     let stopping_impulse = phys_obj.moment_of_inertia * relative_speed.abs()
         / (phys_obj.mass * radius.powi(2) + phys_obj.moment_of_inertia);
     let impulse = f32::min(max_impulse, stopping_impulse).copysign(-relative_speed);
@@ -425,28 +432,46 @@ fn friction_impulse_system(time: Res<Time>, mut query: Query<(&mut PhysObj, &Col
             radius,
             touching_ground: true,
             kinetic_friction,
+            friction_acc,
+            friction_acc_prev,
             ..
         } = *collider
         {
             if phys_obj.vel.y == 0.0 {
                 let normal_impulse = -(phys_obj.acc.y + phys_obj.acc_prev.y) * 0.5 * dt;
-                apply_friction_impulse(&mut phys_obj, radius, normal_impulse, kinetic_friction);
+                let applied_friction = (friction_acc + friction_acc_prev) * 0.5 * dt;
+                apply_friction_impulse(
+                    &mut phys_obj,
+                    radius,
+                    normal_impulse,
+                    kinetic_friction,
+                    applied_friction,
+                );
             }
         }
     }
 }
 
-fn friction_force_system(mut query: Query<(&mut PhysObj, &Collider)>) {
-    for (mut phys_obj, collider) in &mut query {
+fn friction_force_system(mut query: Query<(&mut PhysObj, &mut Collider)>) {
+    for (mut phys_obj, mut collider) in &mut query {
         if let Collider::Ball {
             radius,
             touching_ground: true,
             kinetic_friction,
+            ref mut friction_acc,
+            ref mut friction_acc_prev,
             ..
         } = *collider
         {
             let normal_force = -phys_obj.acc.y;
-            apply_friction_force(&mut phys_obj, radius, normal_force, kinetic_friction);
+            apply_friction_force(
+                &mut phys_obj,
+                radius,
+                normal_force,
+                kinetic_friction,
+                friction_acc,
+                friction_acc_prev,
+            );
         }
     }
 }
@@ -456,12 +481,17 @@ fn apply_friction_force(
     radius: f32,
     normal_force: f32,
     kinetic_friction: f32,
+    friction_acc: &mut f32,
+    friction_acc_prev: &mut f32,
 ) {
     let relative_acceleration = phys_obj.acc.x + phys_obj.angular_acc * radius;
     let max_force = normal_force * kinetic_friction;
     let stopping_force = phys_obj.moment_of_inertia * relative_acceleration.abs()
         / (phys_obj.mass * radius.powi(2) + phys_obj.moment_of_inertia);
     let force = f32::min(max_force, stopping_force).copysign(-relative_acceleration);
+
+    *friction_acc_prev = *friction_acc;
+    *friction_acc = force;
 
     phys_obj.acc.x += force;
     phys_obj.angular_acc += force * phys_obj.mass * radius / phys_obj.moment_of_inertia;
