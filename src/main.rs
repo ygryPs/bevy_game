@@ -31,9 +31,13 @@ impl Plugin for PhysicsPlugin {
             gravity_system
                 .after(integrator_before_system)
                 .before(integrator_after_system),
+            friction_force_system
+                .after(integrator_before_system)
+                .after(player_force_system)
+                .before(integrator_after_system),
             integrator_after_system,
             collision_system.after(integrator_after_system),
-            friction_system.after(collision_system),
+            friction_impulse_system.after(collision_system),
         ));
     }
 }
@@ -413,7 +417,7 @@ fn apply_friction_impulse(
     phys_obj.angular_vel += impulse * phys_obj.mass * radius / phys_obj.moment_of_inertia;
 }
 
-fn friction_system(time: Res<Time>, mut query: Query<(&mut PhysObj, &Collider)>) {
+fn friction_impulse_system(time: Res<Time>, mut query: Query<(&mut PhysObj, &Collider)>) {
     let dt = time.delta_seconds();
     for (mut phys_obj, collider) in &mut query {
         if let Collider::Ball {
@@ -429,4 +433,8 @@ fn friction_system(time: Res<Time>, mut query: Query<(&mut PhysObj, &Collider)>)
             }
         }
     }
+}
+
+fn friction_force_system() {
+    todo!();
 }
