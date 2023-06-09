@@ -435,6 +435,33 @@ fn friction_impulse_system(time: Res<Time>, mut query: Query<(&mut PhysObj, &Col
     }
 }
 
-fn friction_force_system() {
-    todo!();
+fn friction_force_system(mut query: Query<(&mut PhysObj, &Collider)>) {
+    for (mut phys_obj, collider) in &mut query {
+        if let Collider::Ball {
+            radius,
+            touching_ground: true,
+            kinetic_friction,
+            ..
+        } = *collider
+        {
+            let normal_force = -phys_obj.acc.y;
+            apply_friction_force(&mut phys_obj, radius, normal_force, kinetic_friction);
+        }
+    }
+}
+
+fn apply_friction_force(
+    phys_obj: &mut Mut<PhysObj>,
+    radius: f32,
+    normal_force: f32,
+    kinetic_friction: f32,
+) {
+    let relative_acceleration = phys_obj.acc.x + phys_obj.angular_acc * radius;
+    let max_force = normal_force * kinetic_friction;
+    let stopping_force = phys_obj.moment_of_inertia * relative_acceleration.abs()
+        / (phys_obj.mass * radius.powi(2) + phys_obj.moment_of_inertia);
+    let force = f32::min(max_force, stopping_force).copysign(-relative_acceleration);
+
+    phys_obj.acc.x += force;
+    phys_obj.angular_acc += force * phys_obj.mass * radius / phys_obj.moment_of_inertia;
 }
