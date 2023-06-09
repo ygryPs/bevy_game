@@ -306,7 +306,7 @@ fn collision_system(
                 ..
             } => {
                 if transform.translation.y - radius <= FLOOR_Y {
-                    resolve_collision(dt, &mut transform, &mut phys_obj, &mut collider);
+                    while resolve_collision(dt, &mut transform, &mut phys_obj, &mut collider) {}
                 } else if *touching_ground {
                     *touching_ground = false;
                 }
@@ -320,7 +320,7 @@ fn resolve_collision(
     transform: &mut Mut<Transform>,
     phys_obj: &mut Mut<PhysObj>,
     collider: &mut Mut<Collider>,
-) {
+) -> bool {
     match **collider {
         Collider::Ball {
             radius,
@@ -329,6 +329,7 @@ fn resolve_collision(
         } => {
             transform.translation.y = FLOOR_Y + radius;
             phys_obj.vel.y = 0.0;
+            false
         }
         Collider::Ball {
             radius,
@@ -337,6 +338,7 @@ fn resolve_collision(
             kinetic_friction,
             ..
         } => {
+            *touching_ground = true;
             bounce(
                 dt,
                 transform,
@@ -344,8 +346,7 @@ fn resolve_collision(
                 radius,
                 coef_of_restitution,
                 kinetic_friction,
-            );
-            *touching_ground = true;
+            )
         }
     }
 }
@@ -357,7 +358,7 @@ fn bounce(
     radius: f32,
     coef_of_restitution: f32,
     kinetic_friction: f32,
-) {
+) -> bool {
     let (s, v, a) = (
         (transform.translation.y - radius) - FLOOR_Y,
         phys_obj.vel.y,
@@ -397,6 +398,11 @@ fn bounce(
 
         integrate_simple(collision_dt, transform, phys_obj);
     }
+    false // TODO: Calculate time until bouncing stops and proceed as follows:
+          //    - If that time is less than the time step, approximate behavior that results in
+          //        the ball laying/sliding on the ground at the end of the frame.
+          //    - Otherwise, bounce once and return whether another bounce will happen during the frame.
+          // Written out this seems like a bad way to do it... That's a problem for another day.
 }
 
 fn calculate_collision_dt(s: f32, v: f32, a: f32) -> f32 {
