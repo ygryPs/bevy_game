@@ -177,7 +177,7 @@ fn setup(
             radius: PLAYER_RADIUS,
             coef_of_restitution: 0.3,
             touching_ground: false,
-            kinetic_friction: 0.5,
+            kinetic_friction: 0.1,
         },
         Player {
             jump_impulse: 10_000.0,
