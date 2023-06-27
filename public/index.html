@@ -1,0 +1,67 @@
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        body {
+            background: linear-gradient(135deg,
+                    white 0%,
+                    white 49%,
+                    black 49%,
+                    black 51%,
+                    white 51%,
+                    white 100%);
+            background-repeat: repeat;
+            background-size: 20px 20px;
+        }
+
+        canvas {
+            background-color: white;
+        }
+    </style>
+</head>
+<script type="module">
+
+    import { progressiveFetch } from '/tools.js';
+    import '/restart-audio-context.js'
+    import init from './breakout.js';
+
+    const canvasEl = document.getElementById('bevy');
+    const progressStatusEl = document.querySelector('[data-progress-status]');
+    const progressFileEl = document.querySelector('[data-progress-file]');
+    const progressBarEl = document.querySelector('[data-progress-bar]');
+    let hideProgressTimeoutId;
+
+    async function loadingBarFetch(resource) {
+        return progressiveFetch(resource, {
+            start: ({ filename }) => {
+                progressStatusEl.style.display = 'block';
+                progressFileEl.textContent = filename;
+
+                if (hideProgressTimeoutId) {
+                    clearTimeout(hideProgressTimeoutId);
+                }
+            },
+            update: ({ isIndeterminate, loadedPercent }) => {
+                progressBarEl.classList.toggle('bevy-instance__progress-bar--indeterminate', isIndeterminate);
+                progressBarEl.style.width = loadedPercent + '%';
+            },
+            finish: () => {
+
+                hideProgressTimeoutId = setTimeout(() => {
+                    progressStatusEl.style.display = 'none';
+                }, 50);
+            }
+        })
+    }
+    window.bevyLoadingBarFetch = loadingBarFetch;
+    init();
+</script>
+
+
+<script type="module">
+    import init from './breakout.js'
+    init()
+</script>
+
+</html>
